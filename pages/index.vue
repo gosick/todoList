@@ -2,6 +2,7 @@
   <section class="todoapp">
   <header>
     <h1>todos</h1>
+    <p><nuxt-link to="/image"><button>image page</button></nuxt-link></p>
     <input class="new-todo" placeholder="Todo!" autofocus v-model="newTodo" @keyup.enter="addTodo">
   </header>
     <section>

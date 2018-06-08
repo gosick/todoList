@@ -235,3 +235,26 @@ li.editing .todo-value {
   border-color: rgba(175, 47, 47, 0.2);
 }
 /* footer end */
+header p a{
+  text-decoration: none;
+  border: 1px solid transparent;
+  border-radius: 3px;
+}
+/* image start */
+.operations ul {
+  display: flex;
+  align-items: center;
+  margin-bottom: 30px;
+}
+.operations ul li {
+  list-style: none;
+  margin-right: 20px;
+  cursor: pointer;
+}
+.img-wrap:hover {
+  cursor: pointer;
+}
+.cut-wrap {
+  float: left;
+}
+/* image end */
