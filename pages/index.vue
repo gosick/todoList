@@ -3,6 +3,7 @@
   <header>
     <h1>todos</h1>
     <p><nuxt-link to="/image"><button>image page</button></nuxt-link></p>
+    <button @click="msgSwitch($event)">開啟提示訊息</button>
     <input class="new-todo" placeholder="Todo!" autofocus v-model="newTodo" @keyup.enter="addTodo">
   </header>
     <section>
@@ -34,8 +35,26 @@
         <button class="clear-completed" @click="removeCompleted" >Clear completed</button>
       </li>
     </ul>
-
   </footer>
+  <transition v-if="showModal === true">
+    <div class="modal-mask">
+      <div class="modal-wrapper">
+        <div class="modal-container">
+          <div class="modal-header">
+            <slot name="header">提示訊息</slot>
+          </div>
+          <div class="modal-body">
+            <slot name="body">{{ message }}
+              <button class="modal-default-button" @click="closeDialog()">OK</button>
+            </slot>
+          </div>
+          <div class="modal-footer">
+            <slot name="footer"></slot>
+          </div>
+        </div>
+      </div>
+    </div>
+  </transition>
   </section>
 </template>
 
@@ -60,6 +79,10 @@ export default {
       todolist: null,
       todocompletedlength: 0,
       completedlist: null,
+      showModal: false,
+      switch: false,
+      message: '',
+      error: '',
       listnum: {
         flag: 'all',
         all: 0,
@@ -113,6 +136,18 @@ export default {
     }
   },
   methods: {
+    msgSwitch (event) {
+      if (!this.switch) {
+        this.switch = true
+        event.target.innerHTML = '關閉提示訊息'
+      } else {
+        this.switch = false
+        event.target.innerHTML = '開啟提示訊息'
+      }
+    },
+    closeDialog () {
+      this.showModal = false
+    },
     getAll () {
       axios.get('/api/todo')
         .then((response) => {
@@ -138,23 +173,31 @@ export default {
         })
     },
     addTodo () {
-      var value = this.newTodo && this.newTodo.trim()
+      let value = this.newTodo && this.newTodo.trim()
       if (value) {
         this.newTodo = ''
         axios.post('/api/addTodo', querystring.stringify({name: value}))
           .then((response) => {
-            if (this.listnum.flag === 'all' || this.listnum.flag === 'active') {
-              let lastId = this.todolist[this.todolist.length - 1].id
-              let newId = lastId + 1
-              let newTodo = {
-                id: newId,
-                name: value,
-                completed: 0
+            if (response.data.status === 0) {
+              if (this.listnum.flag === 'all' || this.listnum.flag === 'active') {
+                let lastId = this.todolist[this.todolist.length - 1].id
+                let newId = lastId + 1
+                let newTodo = {
+                  id: newId,
+                  name: value,
+                  completed: 0
+                }
+                this.todolist[this.todolist.length] = newTodo
               }
-              this.todolist[this.todolist.length] = newTodo
+              this.listnum.all += 1
+              this.listnum.active += 1
+            } else {
+              this.error = response.data.error
             }
-            this.listnum.all += 1
-            this.listnum.active += 1
+            this.message = response.data.message
+            if (this.switch === true) {
+              this.showModal = true
+            }
           })
       }
     },
@@ -164,7 +207,13 @@ export default {
       if (id && name) {
         axios.post('/api/editTodo', querystring.stringify({id: id, name: name}))
           .then((response) => {
-            console.log(response)
+            if (response.data.status === 1) {
+              this.error = response.data.error
+            }
+            this.message = response.data.message
+            if (this.switch === true) {
+              this.showModal = true
+            }
           })
       }
       this.editedTodo = null
@@ -174,14 +223,22 @@ export default {
       if (id) {
         axios.post('/api/deleteTodo', querystring.stringify({id: todo.id}))
           .then((response) => {
-            if (this.listnum.flag === 'completed') {
-              this.listnum.all -= 1
-              this.listnum.completed -= 1
+            if (response.data.status === 0) {
+              if (this.listnum.flag === 'completed') {
+                this.listnum.all -= 1
+                this.listnum.completed -= 1
+              }
+              if (this.listnum.flag === 'active') {
+                this.listnum.all -= 1
+              }
+              this.todolist.splice(index, 1)
+            } else {
+              this.error = response.data.error
             }
-            if (this.listnum.flag === 'active') {
-              this.listnum.all -= 1
+            this.message = response.data.message
+            if (this.switch === true) {
+              this.showModal = true
             }
-            this.todolist.splice(index, 1)
           })
       }
     },
@@ -193,7 +250,15 @@ export default {
         axios.post('/api/updateFinish', querystring.stringify({id: id, completed: completed}))
           .then((response) => {
             if (index !== 'undefined' && typeof this.todolist[index] !== 'undefined') {
-              this.todolist[index].completed = 1
+              if (response.data.status === 0) {
+                this.todolist[index].completed = 1
+              } else {
+                this.error = response.data.error
+              }
+              this.message = response.data.message
+              if (this.switch === true) {
+                this.showModal = true
+              }
             }
           })
       }
@@ -206,7 +271,15 @@ export default {
         axios.post('/api/updateFinish', querystring.stringify({id: id, completed: completed}))
           .then((response) => {
             if (index !== 'undefined' && typeof this.todolist[index] !== 'undefined') {
-              this.todolist[index].completed = 0
+              if (response.data.status === 0) {
+                this.todolist[index].completed = 0
+              } else {
+                this.error = response.data.error
+              }
+              this.message = response.data.message
+              if (this.switch === true) {
+                this.showModal = true
+              }
             }
           })
       }
@@ -216,9 +289,9 @@ export default {
       this.editedTodo = todo
     },
     removeCompleted () {
-      var completedlist = []
-      var count = 0
-      var completedindex = []
+      let completedlist = []
+      let count = 0
+      let completedindex = []
       this.completedlist = []
       for (let index = 0; index < this.todolist.length; index++) {
         if (this.todolist[index].completed === 1) {
@@ -230,9 +303,17 @@ export default {
       }
       axios.post('/api/deleteComplete', querystring.stringify({completedlist: completedlist}))
         .then((response) => {
-          this.listnum.all -= completedindex.length
-          this.listnum.completed = 0
-          this.todolist.splice(completedindex[count], completedindex.length)
+          if (response.data.status === 0) {
+            this.listnum.all -= completedindex.length
+            this.listnum.completed = 0
+            this.todolist.splice(completedindex[count], completedindex.length)
+          } else {
+            this.error = response.data.error
+          }
+          this.message = response.data.message
+          if (this.switch === true) {
+            this.showModal = true
+          }
         })
     }
   },

@@ -2,7 +2,7 @@ import { Router } from 'express'
 
 const router = Router()
 
-let todo = require('../model/todo');
+let todo = require('../model/todo')
 
 // add todo
 router.post('/addTodo', (req, res) => {
